@@ -53,9 +53,10 @@ export default function Home() {
 
         <button
           style={{
+            marginTop: "30px",
             background: "#D946EF",
-            border: "none",
             color: "white",
+            border: "none",
             padding: "16px 40px",
             borderRadius: "16px",
             fontWeight: "bold",
@@ -71,54 +72,9 @@ export default function Home() {
             color: "#aaa",
           }}
         >
-          Built by{" "}
-          <a
-            href="https://x.com/Nanangn27"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              color: "#FF66CC",
-            }}
-          >
-            NG
-          </a>
+          Built by NG
         </div>
       </div>
-    </main>
-  );
-}      <p
-        style={{
-          maxWidth: "400px",
-          opacity: 0.8,
-        }}
-      >
-        Cute arcade chaos on the Ritual chain.
-        Bomb. Smash. Survive.
-      </p>
-
-      <button
-        style={{
-          marginTop: "30px",
-          background: "#d946ef",
-          color: "white",
-          padding: "15px 40px",
-          borderRadius: "12px",
-          border: "none",
-          fontWeight: "bold",
-        }}
-      >
-        CONNECT WALLET
-      </button>
-
-      <p
-        style={{
-          marginTop: "20px",
-          fontSize: "12px",
-          opacity: 0.6,
-        }}
-      >
-        Built by NG
-      </p>
     </main>
   );
 }
