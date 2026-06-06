@@ -1,33 +1,157 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
+
+const SIZE = 9;
 
 export default function Home() {
   const [connected, setConnected] = useState(false);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(60);
   const [playing, setPlaying] = useState(false);
 
+  const [player, setPlayer] = useState({ x: 1, y: 1 });
+
+  const [bombs, setBombs] = useState<
+    { x: number; y: number }[]
+  >([]);
+
+  const [explosions, setExplosions] = useState<
+    { x: number; y: number }[]
+  >([]);
+
+  const [blocks, setBlocks] = useState<
+    { x: number; y: number }[]
+  >([]);
+
   useEffect(() => {
-    if (!playing || timeLeft <= 0) return;
+    if (!playing) return;
 
     const timer = setInterval(() => {
-      setTimeLeft((t) => t - 1);
+      setTimeLeft((v) => v - 1);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [playing, timeLeft]);
+  }, [playing]);
 
   useEffect(() => {
-    if (timeLeft === 0) {
+    if (timeLeft <= 0) {
       setPlaying(false);
     }
   }, [timeLeft]);
 
+  const createMap = () => {
+    const randomBlocks = [];
+
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (
+          Math.random() > 0.7 &&
+          !(x <= 2 && y <= 2)
+        ) {
+          randomBlocks.push({ x, y });
+        }
+      }
+    }
+
+    setBlocks(randomBlocks);
+  };
+
   const startGame = () => {
     setScore(0);
-    setTimeLeft(30);
+    setTimeLeft(60);
+    setPlayer({ x: 1, y: 1 });
+    setBombs([]);
+    setExplosions([]);
+    createMap();
     setPlaying(true);
+  };
+
+  const movePlayer = (
+    dx: number,
+    dy: number
+  ) => {
+    const nx = player.x + dx;
+    const ny = player.y + dy;
+
+    if (
+      nx < 0 ||
+      nx >= SIZE ||
+      ny < 0 ||
+      ny >= SIZE
+    )
+      return;
+
+    const blocked = blocks.some(
+      (b) => b.x === nx && b.y === ny
+    );
+
+    if (blocked) return;
+
+    setPlayer({
+      x: nx,
+      y: ny,
+    });
+  };
+
+  const placeBomb = () => {
+    const bx = player.x;
+    const by = player.y;
+
+    setBombs((prev) => [
+      ...prev,
+      { x: bx, y: by },
+    ]);
+
+    setTimeout(() => {
+      setBombs((prev) =>
+        prev.filter(
+          (b) =>
+            !(b.x === bx && b.y === by)
+        )
+      );
+
+      const blast = [
+        { x: bx, y: by },
+        { x: bx + 1, y: by },
+        { x: bx - 1, y: by },
+        { x: bx, y: by + 1 },
+        { x: bx, y: by - 1 },
+      ];
+
+      setExplosions(blast);
+
+      setBlocks((prev) => {
+        const destroyed =
+          prev.filter((block) =>
+            blast.some(
+              (e) =>
+                e.x === block.x &&
+                e.y === block.y
+            )
+          ).length;
+
+        if (destroyed > 0) {
+          setScore(
+            (s) => s + destroyed * 10
+          );
+        }
+
+        return prev.filter(
+          (block) =>
+            !blast.some(
+              (e) =>
+                e.x === block.x &&
+                e.y === block.y
+            )
+        );
+      });
+
+      setTimeout(() => {
+        setExplosions([]);
+      }, 500);
+    }, 1500);
   };
 
   return (
@@ -37,21 +161,18 @@ export default function Home() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        padding: "20px",
+        padding: 20,
       }}
     >
       <div
         style={{
           textAlign: "center",
-          maxWidth: "500px",
-          width: "100%",
         }}
       >
         <p
           style={{
             color: "#00E5FF",
             letterSpacing: "4px",
-            marginBottom: "20px",
           }}
         >
           RITUAL TESTNET
@@ -62,7 +183,6 @@ export default function Home() {
             color: "#FF66CC",
             fontSize: "64px",
             lineHeight: "0.9",
-            marginBottom: "24px",
           }}
         >
           SIGGY
@@ -70,41 +190,30 @@ export default function Home() {
           SMASH
         </h1>
 
-        <p
-          style={{
-            color: "#d1d1d1",
-            marginBottom: "30px",
-            fontSize: "18px",
-          }}
-        >
-          Cute arcade chaos on the Ritual chain.
-          <br />
-          Bomb. Smash. Survive.
-        </p>
-
         <button
-          onClick={() => setConnected(!connected)}
+          onClick={() =>
+            setConnected(!connected)
+          }
           style={{
             background: "#D946EF",
-            border: "none",
             color: "white",
+            border: "none",
             padding: "16px 40px",
-            borderRadius: "16px",
+            borderRadius: 16,
             fontWeight: "bold",
-            fontSize: "18px",
-            cursor: "pointer",
           }}
         >
-          {connected ? "CONNECTED" : "CONNECT WALLET"}
+          {connected
+            ? "CONNECTED"
+            : "CONNECT WALLET"}
         </button>
 
         {connected && (
           <>
             <div
               style={{
-                marginTop: "30px",
                 color: "white",
-                fontSize: "20px",
+                marginTop: 20,
               }}
             >
               Score: {score}
@@ -113,7 +222,6 @@ export default function Home() {
             <div
               style={{
                 color: "#00E5FF",
-                marginTop: "10px",
               }}
             >
               Time: {timeLeft}s
@@ -122,12 +230,11 @@ export default function Home() {
             <button
               onClick={startGame}
               style={{
-                marginTop: "20px",
+                marginTop: 15,
                 background: "#00E5FF",
                 border: "none",
-                color: "#111",
                 padding: "12px 30px",
-                borderRadius: "12px",
+                borderRadius: 12,
                 fontWeight: "bold",
               }}
             >
@@ -135,32 +242,152 @@ export default function Home() {
             </button>
 
             {playing && (
-              <div
-                onClick={() => setScore(score + 1)}
-                style={{
-                  margin: "30px auto",
-                  width: "100px",
-                  height: "100px",
-                  borderRadius: "50%",
-                  background: "#FF66CC",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: "bold",
-                  fontSize: "24px",
-                }}
-              >
-                💣
-              </div>
+              <>
+                <div
+                  style={{
+                    width: 360,
+                    height: 360,
+                    margin: "20px auto",
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(9,1fr)",
+                    background:
+                      "#160028",
+                    border:
+                      "3px solid #FF66CC",
+                  }}
+                >
+                  {Array.from({
+                    length: SIZE * SIZE,
+                  }).map((_, i) => {
+                    const x = i % SIZE;
+                    const y =
+                      Math.floor(
+                        i / SIZE
+                      );
+
+                    const isPlayer =
+                      player.x === x &&
+                      player.y === y;
+
+                    const isBomb =
+                      bombs.some(
+                        (b) =>
+                          b.x === x &&
+                          b.y === y
+                      );
+
+                    const isExplosion =
+                      explosions.some(
+                        (e) =>
+                          e.x === x &&
+                          e.y === y
+                      );
+
+                    const isBlock =
+                      blocks.some(
+                        (b) =>
+                          b.x === x &&
+                          b.y === y
+                      );
+
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          border:
+                            "1px solid #26003f",
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "center",
+                          background:
+                            isExplosion
+                              ? "#ff9933"
+                              : isBlock
+                              ? "#7b4f2f"
+                              : "#1d0035",
+                        }}
+                      >
+                        {isPlayer && (
+                          <Image
+                            src="/siggy-player.png"
+                            alt="Siggy"
+                            width={28}
+                            height={28}
+                          />
+                        )}
+
+                        {isBomb &&
+                          !isPlayer &&
+                          "💣"}
+
+                        {isExplosion &&
+                          "💥"}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div>
+                  <button
+                    onClick={() =>
+                      movePlayer(0, -1)
+                    }
+                  >
+                    ⬆
+                  </button>
+
+                  <div>
+                    <button
+                      onClick={() =>
+                        movePlayer(
+                          -1,
+                          0
+                        )
+                      }
+                    >
+                      ⬅
+                    </button>
+
+                    <button
+                      onClick={
+                        placeBomb
+                      }
+                    >
+                      💣
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        movePlayer(
+                          1,
+                          0
+                        )
+                      }
+                    >
+                      ➡
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      movePlayer(0, 1)
+                    }
+                  >
+                    ⬇
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}
 
         <div
           style={{
-            marginTop: "30px",
+            marginTop: 30,
             color: "#aaa",
           }}
         >
