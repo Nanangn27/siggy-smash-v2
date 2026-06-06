@@ -53,10 +53,9 @@ export default function Home() {
 
         <button
           style={{
-            marginTop: "30px",
             background: "#D946EF",
-            color: "white",
             border: "none",
+            color: "white",
             padding: "16px 40px",
             borderRadius: "16px",
             fontWeight: "bold",
@@ -72,7 +71,17 @@ export default function Home() {
             color: "#aaa",
           }}
         >
-          Built by NG
+          Built by{" "}
+          <a
+            href="https://x.com/Nanangn27"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: "#FF66CC",
+            }}
+          >
+            NG
+          </a>
         </div>
       </div>
     </main>
