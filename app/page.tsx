@@ -3,38 +3,90 @@ export default function Home() {
     <main
       style={{
         minHeight: "100vh",
-        background:
-          "linear-gradient(to bottom, #0b0820, #120d35, #1b144d)",
-        color: "white",
         display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
         justifyContent: "center",
-        textAlign: "center",
+        alignItems: "center",
         padding: "20px",
       }}
     >
-      <p
+      <div
         style={{
-          color: "#00e5ff",
-          letterSpacing: "3px",
-          fontSize: "14px",
+          textAlign: "center",
+          maxWidth: "500px",
+          width: "100%",
         }}
       >
-        RITUAL TESTNET
-      </p>
+        <p
+          style={{
+            color: "#00E5FF",
+            letterSpacing: "4px",
+            marginBottom: "20px",
+          }}
+        >
+          RITUAL TESTNET
+        </p>
 
-      <h1
-        style={{
-          color: "#ff69c8",
-          fontSize: "48px",
-          margin: "10px 0",
-        }}
-      >
-        SIGGY SMASH
-      </h1>
+        <h1
+          style={{
+            color: "#FF66CC",
+            fontSize: "64px",
+            lineHeight: "0.9",
+            marginBottom: "24px",
+          }}
+        >
+          SIGGY
+          <br />
+          SMASH
+        </h1>
 
-      <p
+        <p
+          style={{
+            color: "#d1d1d1",
+            marginBottom: "40px",
+            fontSize: "18px",
+          }}
+        >
+          Cute arcade chaos on the Ritual chain.
+          <br />
+          Bomb. Smash. Survive.
+        </p>
+
+        <button
+          style={{
+            background: "#D946EF",
+            border: "none",
+            color: "white",
+            padding: "16px 40px",
+            borderRadius: "16px",
+            fontWeight: "bold",
+            fontSize: "18px",
+          }}
+        >
+          CONNECT WALLET
+        </button>
+
+        <div
+          style={{
+            marginTop: "30px",
+            color: "#aaa",
+          }}
+        >
+          Built by{" "}
+          <a
+            href="https://x.com/Nanangn27"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: "#FF66CC",
+            }}
+          >
+            NG
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}      <p
         style={{
           maxWidth: "400px",
           opacity: 0.8,
