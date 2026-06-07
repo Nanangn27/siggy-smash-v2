@@ -3,20 +3,24 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-import {
-  SIZE,
-  DEFAULT_BLOCKS,
-  isBlocked,
-  randomEnemyMove,
-  createBlast,
-} from "./GameLogic";
+const SIZE = 9;
+
+const DEFAULT_BLOCKS = [
+  { x: 3, y: 2 },
+  { x: 4, y: 2 },
+  { x: 5, y: 2 },
+  { x: 6, y: 4 },
+  { x: 2, y: 6 },
+  { x: 7, y: 6 },
+  { x: 7, y: 3 },
+  { x: 5, y: 7 },
+];
 
 export default function GameBoard() {
   const [player, setPlayer] = useState({
     x: 1,
     y: 1,
   });
-
 
   const [enemy, setEnemy] = useState({
     x: 7,
@@ -25,8 +29,7 @@ export default function GameBoard() {
 
   const [score, setScore] = useState(0);
 
-  const [timeLeft, setTimeLeft] =
-    useState(60);
+  const [timeLeft, setTimeLeft] = useState(60);
 
   const [gameOver, setGameOver] =
     useState(false);
@@ -65,60 +68,56 @@ export default function GameBoard() {
     if (gameOver) return;
 
     const ai = setInterval(() => {
-      setEnemy((e) =>
-        randomEnemyMove(e, blocks)
-      );
-    }, 700);
+      const dirs = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ];
+
+      const [dx, dy] =
+        dirs[
+          Math.floor(
+            Math.random() * dirs.length
+          )
+        ];
+
+      setEnemy((e) => {
+        const nx = Math.max(
+          0,
+          Math.min(
+            SIZE - 1,
+            e.x + dx
+          )
+        );
+
+        const ny = Math.max(
+          0,
+          Math.min(
+            SIZE - 1,
+            e.y + dy
+          )
+        );
+
+        const blocked =
+          blocks.some(
+            (b) =>
+              b.x === nx &&
+              b.y === ny
+          );
+
+        if (blocked) return e;
+
+        return {
+          x: nx,
+          y: ny,
+        };
+      });
+    }, 800);
 
     return () =>
       clearInterval(ai);
-  }, [gameOver, blocks]);
-
-  useEffect(() => {
-    const handleKey = (
-      e: KeyboardEvent
-    ) => {
-      if (gameOver) return;
-
-      if (
-        e.key === "ArrowUp" ||
-        e.key === "w"
-      )
-        move(0, -1);
-
-      if (
-        e.key === "ArrowDown" ||
-        e.key === "s"
-      )
-        move(0, 1);
-
-      if (
-        e.key === "ArrowLeft" ||
-        e.key === "a"
-      )
-        move(-1, 0);
-
-      if (
-        e.key === "ArrowRight" ||
-        e.key === "d"
-      )
-        move(1, 0);
-
-      if (e.key === " ")
-        placeBomb();
-    };
-
-    window.addEventListener(
-      "keydown",
-      handleKey
-    );
-
-    return () =>
-      window.removeEventListener(
-        "keydown",
-        handleKey
-      );
-  });
+  }, [blocks, gameOver]);
 
   const move = (
     dx: number,
@@ -137,10 +136,14 @@ export default function GameBoard() {
     )
       return;
 
-    if (
-      isBlocked(nx, ny, blocks)
-    )
-      return;
+    const blocked =
+      blocks.some(
+        (b) =>
+          b.x === nx &&
+          b.y === ny
+      );
+
+    if (blocked) return;
 
     setPlayer({
       x: nx,
@@ -154,11 +157,12 @@ export default function GameBoard() {
     const bx = player.x;
     const by = player.y;
 
-    const exists = bombs.some(
-      (b) =>
-        b.x === bx &&
-        b.y === by
-    );
+    const exists =
+      bombs.some(
+        (b) =>
+          b.x === bx &&
+          b.y === by
+      );
 
     if (exists) return;
 
@@ -181,11 +185,13 @@ export default function GameBoard() {
         )
       );
 
-      const blast =
-        createBlast(
-          bx,
-          by
-        );
+      const blast = [
+        { x: bx, y: by },
+        { x: bx + 1, y: by },
+        { x: bx - 1, y: by },
+        { x: bx, y: by + 1 },
+        { x: bx, y: by - 1 },
+      ];
 
       setExplosions(blast);
 
@@ -214,18 +220,23 @@ export default function GameBoard() {
             e.y === player.y
         );
 
-      if (playerHit) {
+      if (
+        playerHit &&
+        !(player.x === bx &&
+          player.y === by)
+      ) {
         setGameOver(true);
       }
 
       setBlocks((prev) => {
         const destroyed =
-          prev.filter((b) =>
-            blast.some(
-              (e) =>
-                e.x === b.x &&
-                e.y === b.y
-            )
+          prev.filter(
+            (block) =>
+              blast.some(
+                (e) =>
+                  e.x === block.x &&
+                  e.y === block.y
+              )
           ).length;
 
         if (destroyed) {
@@ -237,11 +248,11 @@ export default function GameBoard() {
         }
 
         return prev.filter(
-          (b) =>
+          (block) =>
             !blast.some(
               (e) =>
-                e.x === b.x &&
-                e.y === b.y
+                e.x === block.x &&
+                e.y === block.y
             )
         );
       });
@@ -265,14 +276,15 @@ export default function GameBoard() {
 
     setScore(0);
     setTimeLeft(60);
-    setGameOver(false);
 
     setBombs([]);
     setExplosions([]);
 
-    setBlocks(
-      DEFAULT_BLOCKS
-    );
+    setBlocks([
+      ...DEFAULT_BLOCKS,
+    ]);
+
+    setGameOver(false);
   };
 
   return (
@@ -297,6 +309,19 @@ export default function GameBoard() {
       >
         Time: {timeLeft}s
       </div>
+
+      {score >= 200 && (
+        <div
+          style={{
+            color: "#00ff88",
+            fontSize: 28,
+            fontWeight: "bold",
+            marginBottom: 10,
+          }}
+        >
+          YOU WIN 🎉
+        </div>
+      )}
 
       {gameOver && (
         <div>
@@ -329,16 +354,14 @@ export default function GameBoard() {
             "4px solid #FF66CC",
           display: "grid",
           gridTemplateColumns:
-            `repeat(${SIZE},1fr)`,
+            "repeat(9,1fr)",
         }}
       >
         {Array.from({
           length:
             SIZE * SIZE,
         }).map((_, i) => {
-          const x =
-            i % SIZE;
-
+          const x = i % SIZE;
           const y =
             Math.floor(
               i / SIZE
