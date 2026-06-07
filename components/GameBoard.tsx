@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const SIZE = 9;
+import {
+  SIZE,
+  DEFAULT_BLOCKS,
+  isBlocked,
+  randomEnemyMove,
+  createBlast,
+} from "./GameLogic";
 
 export default function GameBoard() {
   const [player, setPlayer] = useState({
@@ -11,31 +17,114 @@ export default function GameBoard() {
     y: 1,
   });
 
+  const [enemy, setEnemy] = useState({
+    x: 7,
+    y: 7,
+  });
+
   const [score, setScore] = useState(0);
+
+  const [timeLeft, setTimeLeft] =
+    useState(60);
+
+  const [gameOver, setGameOver] =
+    useState(false);
 
   const [bombs, setBombs] = useState<
     { x: number; y: number }[]
   >([]);
 
-  const [explosions, setExplosions] = useState<
-    { x: number; y: number }[]
-  >([]);
+  const [explosions, setExplosions] =
+    useState<
+      { x: number; y: number }[]
+    >([]);
 
-  const [blocks, setBlocks] = useState([
-    { x: 3, y: 2 },
-    { x: 4, y: 2 },
-    { x: 5, y: 2 },
-    { x: 6, y: 4 },
-    { x: 2, y: 6 },
-    { x: 7, y: 6 },
-    { x: 7, y: 3 },
-    { x: 5, y: 7 },
-  ]);
+  const [blocks, setBlocks] =
+    useState(DEFAULT_BLOCKS);
+
+  useEffect(() => {
+    if (gameOver) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          setGameOver(true);
+          return 0;
+        }
+
+        return t - 1;
+      });
+    }, 1000);
+
+    return () =>
+      clearInterval(timer);
+  }, [gameOver]);
+
+  useEffect(() => {
+    if (gameOver) return;
+
+    const ai = setInterval(() => {
+      setEnemy((e) =>
+        randomEnemyMove(e, blocks)
+      );
+    }, 700);
+
+    return () =>
+      clearInterval(ai);
+  }, [gameOver, blocks]);
+
+  useEffect(() => {
+    const handleKey = (
+      e: KeyboardEvent
+    ) => {
+      if (gameOver) return;
+
+      if (
+        e.key === "ArrowUp" ||
+        e.key === "w"
+      )
+        move(0, -1);
+
+      if (
+        e.key === "ArrowDown" ||
+        e.key === "s"
+      )
+        move(0, 1);
+
+      if (
+        e.key === "ArrowLeft" ||
+        e.key === "a"
+      )
+        move(-1, 0);
+
+      if (
+        e.key === "ArrowRight" ||
+        e.key === "d"
+      )
+        move(1, 0);
+
+      if (e.key === " ")
+        placeBomb();
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKey
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleKey
+      );
+  });
 
   const move = (
     dx: number,
     dy: number
   ) => {
+    if (gameOver) return;
+
     const nx = player.x + dx;
     const ny = player.y + dy;
 
@@ -47,11 +136,10 @@ export default function GameBoard() {
     )
       return;
 
-    const blocked = blocks.some(
-      (b) => b.x === nx && b.y === ny
-    );
-
-    if (blocked) return;
+    if (
+      isBlocked(nx, ny, blocks)
+    )
+      return;
 
     setPlayer({
       x: nx,
@@ -60,60 +148,99 @@ export default function GameBoard() {
   };
 
   const placeBomb = () => {
+    if (gameOver) return;
+
     const bx = player.x;
     const by = player.y;
 
-    const alreadyBomb = bombs.some(
-      (b) => b.x === bx && b.y === by
+    const exists = bombs.some(
+      (b) =>
+        b.x === bx &&
+        b.y === by
     );
 
-    if (alreadyBomb) return;
+    if (exists) return;
 
     setBombs((prev) => [
       ...prev,
-      { x: bx, y: by },
+      {
+        x: bx,
+        y: by,
+      },
     ]);
 
     setTimeout(() => {
       setBombs((prev) =>
         prev.filter(
           (b) =>
-            !(b.x === bx && b.y === by)
+            !(
+              b.x === bx &&
+              b.y === by
+            )
         )
       );
 
-      const blast = [
-        { x: bx, y: by },
-        { x: bx + 1, y: by },
-        { x: bx - 1, y: by },
-        { x: bx, y: by + 1 },
-        { x: bx, y: by - 1 },
-      ];
+      const blast =
+        createBlast(
+          bx,
+          by
+        );
 
       setExplosions(blast);
 
+      const enemyHit =
+        blast.some(
+          (e) =>
+            e.x === enemy.x &&
+            e.y === enemy.y
+        );
+
+      if (enemyHit) {
+        setScore(
+          (s) => s + 50
+        );
+
+        setEnemy({
+          x: 7,
+          y: 7,
+        });
+      }
+
+      const playerHit =
+        blast.some(
+          (e) =>
+            e.x === player.x &&
+            e.y === player.y
+        );
+
+      if (playerHit) {
+        setGameOver(true);
+      }
+
       setBlocks((prev) => {
         const destroyed =
-          prev.filter((block) =>
+          prev.filter((b) =>
             blast.some(
               (e) =>
-                e.x === block.x &&
-                e.y === block.y
+                e.x === b.x &&
+                e.y === b.y
             )
           ).length;
 
-        if (destroyed > 0) {
+        if (destroyed) {
           setScore(
-            (s) => s + destroyed * 10
+            (s) =>
+              s +
+              destroyed * 10
           );
         }
 
         return prev.filter(
-          (block) =>
+          (b) =>
             !blast.some(
               (e) =>
-                e.x === block.x &&
-                e.y === block.y
+                e.x === b.x &&
+                e.y === b.y
             )
         );
       });
@@ -124,51 +251,112 @@ export default function GameBoard() {
     }, 1500);
   };
 
+  const restart = () => {
+    setPlayer({
+      x: 1,
+      y: 1,
+    });
+
+    setEnemy({
+      x: 7,
+      y: 7,
+    });
+
+    setScore(0);
+    setTimeLeft(60);
+    setGameOver(false);
+
+    setBombs([]);
+    setExplosions([]);
+
+    setBlocks(
+      DEFAULT_BLOCKS
+    );
+  };
+
   return (
     <div
       style={{
         textAlign: "center",
       }}
     >
-      <div
+      <h2
         style={{
           color: "white",
-          fontWeight: "bold",
-          marginBottom: 12,
-          fontSize: "20px",
         }}
       >
         Score: {score}
-      </div>
+      </h2>
 
       <div
         style={{
-          width: "min(90vw, 520px)",
-          aspectRatio: "1 / 1",
-          margin: "0 auto 20px",
-          background: "#160028",
-          border: "4px solid #FF66CC",
+          color: "#00E5FF",
+          marginBottom: 10,
+        }}
+      >
+        Time: {timeLeft}s
+      </div>
+
+      {gameOver && (
+        <div>
+          <h2
+            style={{
+              color: "#FF66CC",
+            }}
+          >
+            GAME OVER
+          </h2>
+
+          <button
+            onClick={restart}
+          >
+            RESTART
+          </button>
+        </div>
+      )}
+
+      <div
+        style={{
+          width:
+            "min(90vw,520px)",
+          aspectRatio: "1",
+          margin:
+            "20px auto",
+          background:
+            "#160028",
+          border:
+            "4px solid #FF66CC",
           display: "grid",
           gridTemplateColumns:
-            "repeat(9,1fr)",
+            `repeat(${SIZE},1fr)`,
         }}
       >
         {Array.from({
-          length: SIZE * SIZE,
+          length:
+            SIZE * SIZE,
         }).map((_, i) => {
-          const x = i % SIZE;
+          const x =
+            i % SIZE;
+
           const y =
-            Math.floor(i / SIZE);
+            Math.floor(
+              i / SIZE
+            );
 
           const isPlayer =
             player.x === x &&
             player.y === y;
 
-          const isBomb = bombs.some(
-            (b) =>
-              b.x === x &&
-              b.y === y
-          );
+          const isEnemy =
+            enemy.x === x &&
+            enemy.y === y;
+
+          const isBomb =
+            bombs.some(
+              (b) =>
+                b.x === x &&
+                b.y === y
+            );
 
           const isExplosion =
             explosions.some(
@@ -190,10 +378,11 @@ export default function GameBoard() {
               style={{
                 border:
                   "1px solid #26003f",
-                display: "flex",
-                alignItems:
-                  "center",
+                display:
+                  "flex",
                 justifyContent:
+                  "center",
+                alignItems:
                   "center",
                 background:
                   isExplosion
@@ -212,6 +401,10 @@ export default function GameBoard() {
                 />
               )}
 
+              {isEnemy &&
+                !isPlayer &&
+                "👾"}
+
               {isBomb &&
                 !isPlayer &&
                 "💣"}
@@ -228,9 +421,8 @@ export default function GameBoard() {
           move(0, -1)
         }
         style={{
-          width: 50,
-          height: 50,
-          marginBottom: 5,
+          width: 60,
+          height: 60,
         }}
       >
         ⬆
@@ -242,8 +434,8 @@ export default function GameBoard() {
             move(-1, 0)
           }
           style={{
-            width: 50,
-            height: 50,
+            width: 60,
+            height: 60,
           }}
         >
           ⬅
@@ -252,9 +444,10 @@ export default function GameBoard() {
         <button
           onClick={placeBomb}
           style={{
-            width: 60,
-            height: 50,
-            margin: "0 10px",
+            width: 70,
+            height: 60,
+            margin:
+              "0 10px",
           }}
         >
           💣
@@ -265,8 +458,8 @@ export default function GameBoard() {
             move(1, 0)
           }
           style={{
-            width: 50,
-            height: 50,
+            width: 60,
+            height: 60,
           }}
         >
           ➡
@@ -278,8 +471,8 @@ export default function GameBoard() {
           move(0, 1)
         }
         style={{
-          width: 50,
-          height: 50,
+          width: 60,
+          height: 60,
           marginTop: 5,
         }}
       >
