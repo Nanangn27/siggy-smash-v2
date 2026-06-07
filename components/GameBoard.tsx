@@ -17,6 +17,7 @@ export default function GameBoard() {
     y: 1,
   });
 
+
   const [enemy, setEnemy] = useState({
     x: 7,
     y: 7,
