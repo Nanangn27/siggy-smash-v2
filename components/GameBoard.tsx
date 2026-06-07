@@ -28,6 +28,19 @@ export default function GameBoard() {
   const [score, setScore] =
     useState(0);
 
+const [lives, setLives] =
+  useState(3);
+
+const [highScore, setHighScore] =
+  useState(0);
+
+const [coins, setCoins] =
+  useState<Position[]>([
+    { x: 2, y: 2 },
+    { x: 6, y: 2 },
+    { x: 4, y: 7 },
+  ]);
+  
   const [timeLeft, setTimeLeft] =
     useState(60);
 
@@ -52,6 +65,18 @@ export default function GameBoard() {
     Position[]
   >(generateWalls());
 
+const [lives, setLives] =
+  useState(3);
+
+const [highScore, setHighScore] =
+  useState(0);
+
+const [coins, setCoins] =
+  useState<Position[]>([
+    { x: 2, y: 2 },
+    { x: 6, y: 2 },
+    { x: 4, y: 7 },
+  ]);
   useEffect(() => {
     if (gameOver || victory)
       return;
@@ -96,14 +121,60 @@ export default function GameBoard() {
   ]);
 
   useEffect(() => {
-    if (
-      enemy.x === player.x &&
-      enemy.y === player.y
-    ) {
+  if (
+    enemy.x === player.x &&
+    enemy.y === player.y
+  ) {
+    if (lives > 1) {
+      setLives((v) => v - 1);
+
+      setPlayer({
+        x: 1,
+        y: 1,
+      });
+    } else {
       setGameOver(true);
     }
-  }, [enemy, player]);
+  }
+}, [
+  enemy,
+  player,
+  lives,
+]);
 
+useEffect(() => {
+  setHighScore((h) =>
+    Math.max(h, score)
+  );
+}, [score]);
+
+useEffect(() => {
+  const hitCoin = coins.find(
+    (c) =>
+      c.x === player.x &&
+      c.y === player.y
+  );
+
+  if (!hitCoin) return;
+
+  setCoins((prev) =>
+    prev.filter(
+      (c) =>
+        !(
+          c.x === hitCoin.x &&
+          c.y === hitCoin.y
+        )
+    )
+  );
+
+  setScore((s) => s + 20);
+}, [player, coins]);
+
+useEffect(() => {
+  if (score >= 100) {
+    setVictory(true);
+  }
+}, [score]);
   const move = (
     dx: number,
     dy: number
@@ -337,12 +408,40 @@ export default function GameBoard() {
       }}
     >
       <h2
-        style={{
-          color: "white",
-        }}
-      >
-        Score: {score}
-      </h2>
+  style={{
+    color: "white",
+    marginBottom: 8,
+  }}
+>
+  Score: {score}
+</h2>
+
+<div
+  style={{
+    color: "#FFD700",
+    fontWeight: "bold",
+    marginBottom: 4,
+  }}
+>
+  ❤️ Lives: {lives}
+</div>
+
+<div
+  style={{
+    color: "#00FF99",
+    marginBottom: 4,
+  }}
+>
+  ⭐ High Score: {highScore}
+</div>
+
+<div
+  style={{
+    color: "#00E5FF",
+  }}
+>
+  ⏱ Time: {timeLeft}s
+</div>
 
       <div
         style={{
@@ -467,7 +566,12 @@ export default function GameBoard() {
                   w.y ===
                     y
               );
-
+const isCoin =
+  coins.some(
+    (c) =>
+      c.x === x &&
+      c.y === y
+  );
             return (
               <div
                 key={i}
@@ -506,7 +610,10 @@ export default function GameBoard() {
                 {isEnemy &&
                   !isPlayer &&
                   "👾"}
-
+{isCoin &&
+ !isPlayer &&
+ !isEnemy &&
+ "💎"}
                 {isBomb &&
                   !isPlayer &&
                   "💣"}
