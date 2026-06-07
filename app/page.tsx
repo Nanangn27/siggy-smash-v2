@@ -5,25 +5,55 @@ import Image from "next/image";
 
 const SIZE = 9;
 
+type Pos = {
+  x: number;
+  y: number;
+};
+
+type Enemy = {
+  id: number;
+  x: number;
+  y: number;
+};
+
 export default function Home() {
   const [connected, setConnected] = useState(false);
+
   const [score, setScore] = useState(0);
+  const [bestScore, setBestScore] = useState(0);
+
   const [timeLeft, setTimeLeft] = useState(60);
   const [playing, setPlaying] = useState(false);
 
-  const [player, setPlayer] = useState({ x: 1, y: 1 });
+  const [player, setPlayer] = useState<Pos>({
+    x: 1,
+    y: 1,
+  });
 
-  const [bombs, setBombs] = useState<
-    { x: number; y: number }[]
-  >([]);
+  const [bombs, setBombs] = useState<Pos[]>([]);
+  const [explosions, setExplosions] = useState<Pos[]>([]);
+  const [blocks, setBlocks] = useState<Pos[]>([]);
+  const [enemies, setEnemies] = useState<Enemy[]>([]);
 
-  const [explosions, setExplosions] = useState<
-    { x: number; y: number }[]
-  >([]);
+  useEffect(() => {
+    const saved =
+      localStorage.getItem("siggy-best");
 
-  const [blocks, setBlocks] = useState<
-    { x: number; y: number }[]
-  >([]);
+    if (saved) {
+      setBestScore(Number(saved));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (score > bestScore) {
+      setBestScore(score);
+
+      localStorage.setItem(
+        "siggy-best",
+        String(score)
+      );
+    }
+  }, [score, bestScore]);
 
   useEffect(() => {
     if (!playing) return;
@@ -38,11 +68,91 @@ export default function Home() {
   useEffect(() => {
     if (timeLeft <= 0) {
       setPlaying(false);
+      alert("⏰ TIME UP");
     }
   }, [timeLeft]);
 
+  useEffect(() => {
+    if (!playing) return;
+
+    const moveEnemy = setInterval(() => {
+      setEnemies((prev) =>
+        prev.map((enemy) => {
+          const dirs = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ];
+
+          const move =
+            dirs[
+              Math.floor(
+                Math.random() * dirs.length
+              )
+            ];
+
+          const nx =
+            enemy.x + Number(move[0]);
+
+          const ny =
+            enemy.y + Number(move[1]);
+
+          if (
+            nx < 0 ||
+            nx >= SIZE ||
+            ny < 0 ||
+            ny >= SIZE
+          ) {
+            return enemy;
+          }
+
+          const blocked = blocks.some(
+            (b) =>
+              b.x === nx &&
+              b.y === ny
+          );
+
+          if (blocked) return enemy;
+
+          return {
+            ...enemy,
+            x: nx,
+            y: ny,
+          };
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(moveEnemy);
+  }, [playing, blocks]);
+
+  useEffect(() => {
+    const dead = enemies.some(
+      (enemy) =>
+        enemy.x === player.x &&
+        enemy.y === player.y
+    );
+
+    if (dead && playing) {
+      setPlaying(false);
+      alert("👾 ENEMY GOT YOU");
+    }
+  }, [enemies, player, playing]);
+
+  useEffect(() => {
+    if (
+      playing &&
+      enemies.length === 0 &&
+      blocks.length === 0
+    ) {
+      setPlaying(false);
+      alert("🏆 YOU WIN");
+    }
+  }, [playing, enemies, blocks]);
+
   const createMap = () => {
-    const randomBlocks = [];
+    const randomBlocks: Pos[] = [];
 
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -50,7 +160,10 @@ export default function Home() {
           Math.random() > 0.7 &&
           !(x <= 2 && y <= 2)
         ) {
-          randomBlocks.push({ x, y });
+          randomBlocks.push({
+            x,
+            y,
+          });
         }
       }
     }
@@ -60,11 +173,32 @@ export default function Home() {
 
   const startGame = () => {
     setScore(0);
+
     setTimeLeft(60);
-    setPlayer({ x: 1, y: 1 });
+
+    setPlayer({
+      x: 1,
+      y: 1,
+    });
+
     setBombs([]);
     setExplosions([]);
+
     createMap();
+
+    setEnemies([
+      {
+        id: 1,
+        x: 7,
+        y: 7,
+      },
+      {
+        id: 2,
+        x: 7,
+        y: 1,
+      },
+    ]);
+
     setPlaying(true);
   };
 
@@ -84,10 +218,20 @@ export default function Home() {
       return;
 
     const blocked = blocks.some(
-      (b) => b.x === nx && b.y === ny
+      (b) =>
+        b.x === nx &&
+        b.y === ny
     );
 
     if (blocked) return;
+
+    const bombBlocked = bombs.some(
+      (b) =>
+        b.x === nx &&
+        b.y === ny
+    );
+
+    if (bombBlocked) return;
 
     setPlayer({
       x: nx,
@@ -99,28 +243,80 @@ export default function Home() {
     const bx = player.x;
     const by = player.y;
 
+    const exists = bombs.some(
+      (b) =>
+        b.x === bx &&
+        b.y === by
+    );
+
+    if (exists) return;
+
     setBombs((prev) => [
       ...prev,
-      { x: bx, y: by },
+      {
+        x: bx,
+        y: by,
+      },
     ]);
 
     setTimeout(() => {
       setBombs((prev) =>
         prev.filter(
           (b) =>
-            !(b.x === bx && b.y === by)
+            !(
+              b.x === bx &&
+              b.y === by
+            )
         )
       );
 
       const blast = [
-        { x: bx, y: by },
-        { x: bx + 1, y: by },
-        { x: bx - 1, y: by },
-        { x: bx, y: by + 1 },
-        { x: bx, y: by - 1 },
+        {
+          x: bx,
+          y: by,
+        },
+        {
+          x: bx + 1,
+          y: by,
+        },
+        {
+          x: bx - 1,
+          y: by,
+        },
+        {
+          x: bx,
+          y: by + 1,
+        },
+        {
+          x: bx,
+          y: by - 1,
+        },
       ];
 
       setExplosions(blast);
+
+      setEnemies((prev) =>
+        prev.filter(
+          (enemy) =>
+            !blast.some(
+              (e) =>
+                e.x === enemy.x &&
+                e.y === enemy.y
+            )
+        )
+      );
+
+      const hitPlayer =
+        blast.some(
+          (e) =>
+            e.x === player.x &&
+            e.y === player.y
+        );
+
+      if (hitPlayer) {
+        setPlaying(false);
+        alert("💀 SIGGY GOT SMASHED");
+      }
 
       setBlocks((prev) => {
         const destroyed =
@@ -134,7 +330,9 @@ export default function Home() {
 
         if (destroyed > 0) {
           setScore(
-            (s) => s + destroyed * 10
+            (s) =>
+              s +
+              destroyed * 10
           );
         }
 
@@ -221,6 +419,14 @@ export default function Home() {
 
             <div
               style={{
+                color: "#FFD700",
+              }}
+            >
+              Best: {bestScore}
+            </div>
+
+            <div
+              style={{
                 color: "#00E5FF",
               }}
             >
@@ -258,37 +464,59 @@ export default function Home() {
                   }}
                 >
                   {Array.from({
-                    length: SIZE * SIZE,
+                    length:
+                      SIZE * SIZE,
                   }).map((_, i) => {
-                    const x = i % SIZE;
+                    const x =
+                      i % SIZE;
+
                     const y =
                       Math.floor(
                         i / SIZE
                       );
 
                     const isPlayer =
-                      player.x === x &&
-                      player.y === y;
+                      player.x ===
+                        x &&
+                      player.y ===
+                        y;
 
                     const isBomb =
                       bombs.some(
                         (b) =>
-                          b.x === x &&
-                          b.y === y
+                          b.x ===
+                            x &&
+                          b.y ===
+                            y
                       );
 
                     const isExplosion =
                       explosions.some(
                         (e) =>
-                          e.x === x &&
-                          e.y === y
+                          e.x ===
+                            x &&
+                          e.y ===
+                            y
                       );
 
                     const isBlock =
                       blocks.some(
                         (b) =>
-                          b.x === x &&
-                          b.y === y
+                          b.x ===
+                            x &&
+                          b.y ===
+                            y
+                      );
+
+                    const isEnemy =
+                      enemies.some(
+                        (
+                          enemy
+                        ) =>
+                          enemy.x ===
+                            x &&
+                          enemy.y ===
+                            y
                       );
 
                     return (
@@ -315,8 +543,8 @@ export default function Home() {
                           <Image
                             src="/siggy-player.png"
                             alt="Siggy"
-                            width={28}
-                            height={28}
+                            width={40}
+                            height={40}
                           />
                         )}
 
@@ -326,6 +554,10 @@ export default function Home() {
 
                         {isExplosion &&
                           "💥"}
+
+                        {isEnemy &&
+                          !isExplosion &&
+                          "👾"}
                       </div>
                     );
                   })}
@@ -334,7 +566,10 @@ export default function Home() {
                 <div>
                   <button
                     onClick={() =>
-                      movePlayer(0, -1)
+                      movePlayer(
+                        0,
+                        -1
+                      )
                     }
                   >
                     ⬆
@@ -374,7 +609,10 @@ export default function Home() {
 
                   <button
                     onClick={() =>
-                      movePlayer(0, 1)
+                      movePlayer(
+                        0,
+                        1
+                      )
                     }
                   >
                     ⬇
