@@ -65,18 +65,7 @@ const [coins, setCoins] =
     Position[]
   >(generateWalls());
 
-const [lives, setLives] =
-  useState(3);
 
-const [highScore, setHighScore] =
-  useState(0);
-
-const [coins, setCoins] =
-  useState<Position[]>([
-    { x: 2, y: 2 },
-    { x: 6, y: 2 },
-    { x: 4, y: 7 },
-  ]);
   useEffect(() => {
     if (gameOver || victory)
       return;
