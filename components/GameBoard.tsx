@@ -3,51 +3,58 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const SIZE = 9;
-
-const DEFAULT_BLOCKS = [
-  { x: 3, y: 2 },
-  { x: 4, y: 2 },
-  { x: 5, y: 2 },
-  { x: 6, y: 4 },
-  { x: 2, y: 6 },
-  { x: 7, y: 6 },
-  { x: 7, y: 3 },
-  { x: 5, y: 7 },
-];
+import {
+  SIZE,
+  Position,
+  createBlast,
+  generateBlocks,
+  generateWalls,
+  chasePlayerMove,
+} from "./GameLogic";
 
 export default function GameBoard() {
-  const [player, setPlayer] = useState({
-    x: 1,
-    y: 1,
-  });
+  const [player, setPlayer] =
+    useState<Position>({
+      x: 1,
+      y: 1,
+    });
 
-  const [enemy, setEnemy] = useState({
-    x: 7,
-    y: 7,
-  });
+  const [enemy, setEnemy] =
+    useState<Position>({
+      x: 8,
+      y: 8,
+    });
 
-  const [score, setScore] = useState(0);
+  const [score, setScore] =
+    useState(0);
 
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] =
+    useState(60);
 
   const [gameOver, setGameOver] =
     useState(false);
 
-  const [bombs, setBombs] = useState<
-    { x: number; y: number }[]
-  >([]);
+  const [victory, setVictory] =
+    useState(false);
+
+  const [bombs, setBombs] =
+    useState<Position[]>([]);
 
   const [explosions, setExplosions] =
-    useState<
-      { x: number; y: number }[]
-    >([]);
+    useState<Position[]>([]);
 
   const [blocks, setBlocks] =
-    useState(DEFAULT_BLOCKS);
+    useState<Position[]>(
+      generateBlocks()
+    );
+
+  const [walls] = useState<
+    Position[]
+  >(generateWalls());
 
   useEffect(() => {
-    if (gameOver) return;
+    if (gameOver || victory)
+      return;
 
     const timer = setInterval(() => {
       setTimeLeft((t) => {
@@ -62,71 +69,56 @@ export default function GameBoard() {
 
     return () =>
       clearInterval(timer);
-  }, [gameOver]);
+  }, [gameOver, victory]);
 
   useEffect(() => {
-    if (gameOver) return;
+    if (gameOver || victory)
+      return;
 
     const ai = setInterval(() => {
-      const dirs = [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ];
-
-      const [dx, dy] =
-        dirs[
-          Math.floor(
-            Math.random() * dirs.length
-          )
-        ];
-
-      setEnemy((e) => {
-        const nx = Math.max(
-          0,
-          Math.min(
-            SIZE - 1,
-            e.x + dx
-          )
-        );
-
-        const ny = Math.max(
-          0,
-          Math.min(
-            SIZE - 1,
-            e.y + dy
-          )
-        );
-
-        const blocked =
-          blocks.some(
-            (b) =>
-              b.x === nx &&
-              b.y === ny
-          );
-
-        if (blocked) return e;
-
-        return {
-          x: nx,
-          y: ny,
-        };
-      });
-    }, 800);
+      setEnemy((e) =>
+        chasePlayerMove(
+          e,
+          player,
+          [...blocks, ...walls]
+        )
+      );
+    }, 700);
 
     return () =>
       clearInterval(ai);
-  }, [blocks, gameOver]);
+  }, [
+    player,
+    blocks,
+    walls,
+    gameOver,
+    victory,
+  ]);
+
+  useEffect(() => {
+    if (
+      enemy.x === player.x &&
+      enemy.y === player.y
+    ) {
+      setGameOver(true);
+    }
+  }, [enemy, player]);
 
   const move = (
     dx: number,
     dy: number
   ) => {
-    if (gameOver) return;
+    if (
+      gameOver ||
+      victory
+    )
+      return;
 
-    const nx = player.x + dx;
-    const ny = player.y + dy;
+    const nx =
+      player.x + dx;
+
+    const ny =
+      player.y + dy;
 
     if (
       nx < 0 ||
@@ -137,7 +129,7 @@ export default function GameBoard() {
       return;
 
     const blocked =
-      blocks.some(
+      [...blocks, ...walls].some(
         (b) =>
           b.x === nx &&
           b.y === ny
@@ -151,11 +143,65 @@ export default function GameBoard() {
     });
   };
 
-  const placeBomb = () => {
-    if (gameOver) return;
+  useEffect(() => {
+    const handleKey = (
+      e: KeyboardEvent
+    ) => {
+      if (
+        gameOver ||
+        victory
+      )
+        return;
 
-    const bx = player.x;
-    const by = player.y;
+      switch (e.key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          move(0, -1);
+          break;
+
+        case "ArrowDown":
+        case "s":
+        case "S":
+          move(0, 1);
+          break;
+
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          move(-1, 0);
+          break;
+
+        case "ArrowRight":
+        case "d":
+        case "D":
+          move(1, 0);
+          break;
+
+        case " ":
+          placeBomb();
+          break;
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKey
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleKey
+      );
+  });
+
+  const placeBomb = () => {
+    const bx =
+      player.x;
+
+    const by =
+      player.y;
 
     const exists =
       bombs.some(
@@ -168,10 +214,7 @@ export default function GameBoard() {
 
     setBombs((prev) => [
       ...prev,
-      {
-        x: bx,
-        y: by,
-      },
+      { x: bx, y: by },
     ]);
 
     setTimeout(() => {
@@ -185,15 +228,24 @@ export default function GameBoard() {
         )
       );
 
-      const blast = [
-        { x: bx, y: by },
-        { x: bx + 1, y: by },
-        { x: bx - 1, y: by },
-        { x: bx, y: by + 1 },
-        { x: bx, y: by - 1 },
-      ];
+      const blast =
+        createBlast(
+          bx,
+          by
+        );
 
       setExplosions(blast);
+
+      const playerHit =
+        blast.some(
+          (e) =>
+            e.x === player.x &&
+            e.y === player.y
+        );
+
+      if (playerHit) {
+        setGameOver(true);
+      }
 
       const enemyHit =
         blast.some(
@@ -203,29 +255,10 @@ export default function GameBoard() {
         );
 
       if (enemyHit) {
+        setVictory(true);
         setScore(
-          (s) => s + 50
+          (s) => s + 100
         );
-
-        setEnemy({
-          x: 7,
-          y: 7,
-        });
-      }
-
-      const playerHit =
-        blast.some(
-          (e) =>
-            e.x === player.x &&
-            e.y === player.y
-        );
-
-      if (
-        playerHit &&
-        !(player.x === bx &&
-          player.y === by)
-      ) {
-        setGameOver(true);
       }
 
       setBlocks((prev) => {
@@ -234,8 +267,10 @@ export default function GameBoard() {
             (block) =>
               blast.some(
                 (e) =>
-                  e.x === block.x &&
-                  e.y === block.y
+                  e.x ===
+                    block.x &&
+                  e.y ===
+                    block.y
               )
           ).length;
 
@@ -243,7 +278,8 @@ export default function GameBoard() {
           setScore(
             (s) =>
               s +
-              destroyed * 10
+              destroyed *
+                10
           );
         }
 
@@ -251,8 +287,10 @@ export default function GameBoard() {
           (block) =>
             !blast.some(
               (e) =>
-                e.x === block.x &&
-                e.y === block.y
+                e.x ===
+                  block.x &&
+                e.y ===
+                  block.y
             )
         );
       });
@@ -270,27 +308,32 @@ export default function GameBoard() {
     });
 
     setEnemy({
-      x: 7,
-      y: 7,
+      x: 8,
+      y: 8,
     });
 
     setScore(0);
+
     setTimeLeft(60);
 
+    setGameOver(false);
+
+    setVictory(false);
+
     setBombs([]);
+
     setExplosions([]);
 
-    setBlocks([
-      ...DEFAULT_BLOCKS,
-    ]);
-
-    setGameOver(false);
+    setBlocks(
+      generateBlocks()
+    );
   };
 
   return (
     <div
       style={{
-        textAlign: "center",
+        textAlign:
+          "center",
       }}
     >
       <h2
@@ -303,151 +346,183 @@ export default function GameBoard() {
 
       <div
         style={{
-          color: "#00E5FF",
-          marginBottom: 10,
+          color:
+            "#00E5FF",
         }}
       >
         Time: {timeLeft}s
       </div>
 
-      {score >= 200 && (
-        <div
+      {gameOver && (
+        <h1
           style={{
-            color: "#00ff88",
-            fontSize: 28,
-            fontWeight: "bold",
-            marginBottom: 10,
+            color:
+              "#FF66CC",
           }}
         >
-          YOU WIN 🎉
-        </div>
+          GAME OVER
+        </h1>
       )}
 
-      {gameOver && (
-        <div>
-          <h2
-            style={{
-              color: "#FF66CC",
-            }}
-          >
-            GAME OVER
-          </h2>
+      {victory && (
+        <h1
+          style={{
+            color:
+              "#00ff99",
+          }}
+        >
+          VICTORY
+        </h1>
+      )}
 
-          <button
-            onClick={restart}
-          >
-            RESTART
-          </button>
-        </div>
+      {(gameOver ||
+        victory) && (
+        <button
+          onClick={
+            restart
+          }
+        >
+          RESTART
+        </button>
       )}
 
       <div
         style={{
           width:
             "min(90vw,520px)",
-          aspectRatio: "1",
+          aspectRatio:
+            "1",
           margin:
             "20px auto",
           background:
             "#160028",
           border:
             "4px solid #FF66CC",
-          display: "grid",
+          display:
+            "grid",
           gridTemplateColumns:
             "repeat(9,1fr)",
         }}
       >
         {Array.from({
           length:
-            SIZE * SIZE,
-        }).map((_, i) => {
-          const x = i % SIZE;
-          const y =
-            Math.floor(
-              i / SIZE
+            SIZE *
+            SIZE,
+        }).map(
+          (_, i) => {
+            const x =
+              i %
+              SIZE;
+
+            const y =
+              Math.floor(
+                i /
+                  SIZE
+              );
+
+            const isPlayer =
+              player.x ===
+                x &&
+              player.y ===
+                y;
+
+            const isEnemy =
+              enemy.x ===
+                x &&
+              enemy.y ===
+                y;
+
+            const isBomb =
+              bombs.some(
+                (b) =>
+                  b.x ===
+                    x &&
+                  b.y ===
+                    y
+              );
+
+            const isExplosion =
+              explosions.some(
+                (e) =>
+                  e.x ===
+                    x &&
+                  e.y ===
+                    y
+              );
+
+            const isBlock =
+              blocks.some(
+                (b) =>
+                  b.x ===
+                    x &&
+                  b.y ===
+                    y
+              );
+
+            const isWall =
+              walls.some(
+                (w) =>
+                  w.x ===
+                    x &&
+                  w.y ===
+                    y
+              );
+
+            return (
+              <div
+                key={i}
+                style={{
+                  border:
+                    "1px solid #26003f",
+                  display:
+                    "flex",
+                  justifyContent:
+                    "center",
+                  alignItems:
+                    "center",
+                  background:
+                    isExplosion
+                      ? "#ff9933"
+                      : isWall
+                      ? "#555"
+                      : isBlock
+                      ? "#7b4f2f"
+                      : "#1d0035",
+                }}
+              >
+                {isPlayer && (
+                  <Image
+                    src="/siggy-player.png"
+                    alt="Siggy"
+                    width={
+                      28
+                    }
+                    height={
+                      28
+                    }
+                  />
+                )}
+
+                {isEnemy &&
+                  !isPlayer &&
+                  "👾"}
+
+                {isBomb &&
+                  !isPlayer &&
+                  "💣"}
+
+                {isExplosion &&
+                  "💥"}
+              </div>
             );
-
-          const isPlayer =
-            player.x === x &&
-            player.y === y;
-
-          const isEnemy =
-            enemy.x === x &&
-            enemy.y === y;
-
-          const isBomb =
-            bombs.some(
-              (b) =>
-                b.x === x &&
-                b.y === y
-            );
-
-          const isExplosion =
-            explosions.some(
-              (e) =>
-                e.x === x &&
-                e.y === y
-            );
-
-          const isBlock =
-            blocks.some(
-              (b) =>
-                b.x === x &&
-                b.y === y
-            );
-
-          return (
-            <div
-              key={i}
-              style={{
-                border:
-                  "1px solid #26003f",
-                display:
-                  "flex",
-                justifyContent:
-                  "center",
-                alignItems:
-                  "center",
-                background:
-                  isExplosion
-                    ? "#ff9933"
-                    : isBlock
-                    ? "#7b4f2f"
-                    : "#1d0035",
-              }}
-            >
-              {isPlayer && (
-                <Image
-                  src="/siggy-player.png"
-                  alt="Siggy"
-                  width={28}
-                  height={28}
-                />
-              )}
-
-              {isEnemy &&
-                !isPlayer &&
-                "👾"}
-
-              {isBomb &&
-                !isPlayer &&
-                "💣"}
-
-              {isExplosion &&
-                "💥"}
-            </div>
-          );
-        })}
+          }
+        )}
       </div>
 
       <button
         onClick={() =>
           move(0, -1)
         }
-        style={{
-          width: 60,
-          height: 60,
-        }}
       >
         ⬆
       </button>
@@ -455,36 +530,30 @@ export default function GameBoard() {
       <div>
         <button
           onClick={() =>
-            move(-1, 0)
+            move(
+              -1,
+              0
+            )
           }
-          style={{
-            width: 60,
-            height: 60,
-          }}
         >
           ⬅
         </button>
 
         <button
-          onClick={placeBomb}
-          style={{
-            width: 70,
-            height: 60,
-            margin:
-              "0 10px",
-          }}
+          onClick={
+            placeBomb
+          }
         >
           💣
         </button>
 
         <button
           onClick={() =>
-            move(1, 0)
+            move(
+              1,
+              0
+            )
           }
-          style={{
-            width: 60,
-            height: 60,
-          }}
         >
           ➡
         </button>
@@ -494,11 +563,6 @@ export default function GameBoard() {
         onClick={() =>
           move(0, 1)
         }
-        style={{
-          width: 60,
-          height: 60,
-          marginTop: 5,
-        }}
       >
         ⬇
       </button>
